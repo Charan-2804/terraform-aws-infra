@@ -6,10 +6,6 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = "us-east-1"
-}
-
 # -------------------------
 # Null resource to upload test file from private EC2
 # -------------------------
@@ -34,4 +30,19 @@ resource "null_resource" "upload_test_file" {
       "aws s3 cp /home/ec2-user/test_file.txt s3://${aws_s3_bucket.private_bucket.id}/test-files/test_file.txt"
     ]
   }
+}
+
+# -------------------------
+# Terraform outputs
+# -------------------------
+output "private_ec2_private_ip" {
+  value = aws_instance.private_ec2.private_ip
+}
+
+output "public_ec2_public_ip" {
+  value = aws_instance.public_ec2.public_ip
+}
+
+output "s3_bucket_name" {
+  value = aws_s3_bucket.private_bucket.id
 }
