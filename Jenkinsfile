@@ -18,9 +18,11 @@ pipeline {
         stage('Prepare PEM') {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
-                // Save PEM to workspace so Terraform can use it
-                withCredentials([file(credentialsId: 'terraform-poc-pem', variable: 'PEM_FILE')]) {
-                    sh 'cp $PEM_FILE ./terraform-poc.pem && chmod 600 ./terraform-poc.pem'
+                withCredentials([file(credentialsId: 'terraform-pem', variable: 'PEM_FILE')]) {
+                    sh """
+                        cp $PEM_FILE ./terraform-poc.pem
+                        chmod 600 ./terraform-poc.pem
+                    """
                 }
             }
         }
@@ -46,13 +48,6 @@ pipeline {
             }
         }
 
-        stage('Upload Test File from Private EC2') {
-            steps {
-                echo "Uploading test file from private EC2 via Terraform null_resource..."
-                sh 'terraform apply -target=null_resource.upload_test_file -auto-approve'
-            }
-        }
-
         stage('Show Outputs') {
             steps {
                 script {
@@ -61,6 +56,8 @@ pipeline {
                         echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
                         echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
                         echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
+                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
+                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
                     '''
                 }
             }

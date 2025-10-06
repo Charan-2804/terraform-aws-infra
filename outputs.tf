@@ -1,4 +1,4 @@
- # Output VPC ID
+# Output VPC ID
 output "vpc_id" {
   description = "ID of the VPC"
   value       = aws_vpc.main.id
@@ -16,10 +16,10 @@ output "private_ec2_private_ip" {
   value       = aws_instance.private_ec2.private_ip
 }
 
-# S3 bucket name
+# S3 bucket name (use id to match null_resource)
 output "s3_bucket_name" {
   description = "Name of the private S3 bucket"
-  value       = aws_s3_bucket.private_bucket.bucket
+  value       = aws_s3_bucket.private_bucket.id
 }
 
 # SSH command for public EC2
@@ -39,4 +39,3 @@ output "nat_gateway_ip" {
   description = "Public IP of the NAT Gateway"
   value       = aws_eip.nat.public_ip
 }
-
