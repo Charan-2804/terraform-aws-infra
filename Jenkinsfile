@@ -11,7 +11,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "Checking out Git repository..."
-                git branch: 'main', url: 'https://github.com/Charan-2804/Waste_management.git'
+                git branch: 'main', url: 'https://github.com/Charan-2804/terraform-aws-infra.git'
             }
         }
 
@@ -25,7 +25,7 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 echo "Planning Terraform changes..."
-                sh 'terraform plan -var-file=terraformtf.vars -out=tfplan -input=false'
+                sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
 
@@ -39,13 +39,13 @@ pipeline {
         stage('Show Outputs') {
             steps {
                 script {
-                    echo "=== Terraform Outputs ==="
+                    echo "Terraform Outputs:"
                     sh '''
-                    echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
-                    echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
-                    echo "Private S3 Bucket: $(terraform output -raw s3_bucket_name)"
-                    echo "SSH Command (Public EC2): $(terraform output -raw public_ec2_ssh_command)"
-                    echo "SSH Command via Bastion: $(terraform output -raw ssh_via_bastion_command)"
+                        echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
+                        echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
+                        echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
+                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
+                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
                     '''
                 }
             }
@@ -54,13 +54,13 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished!'
+            echo 'Pipeline finished'
         }
         success {
-            echo 'Terraform applied successfully!'
+            echo 'Terraform applied successfully'
         }
         failure {
-            echo 'Terraform apply failed!'
+            echo 'Terraform apply failed'
         }
     }
 }
