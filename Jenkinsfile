@@ -2,65 +2,70 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')     // Jenkins AWS credentials ID
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
-        AWS_DEFAULT_REGION    = 'us-east-1'
+        AWS_REGION = 'us-east-1'
     }
 
     stages {
-        stage('Checkout Terraform Repo') {
+        stage('Checkout') {
             steps {
-                echo "Checking out Terraform repo..."
                 git url: 'https://github.com/Charan-2804/terraform-aws-infra.git', branch: 'main'
             }
         }
 
         stage('Terraform Init') {
             steps {
-                echo "Initializing Terraform..."
                 sh 'terraform init -input=false'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                echo "Planning Terraform changes..."
                 sh 'terraform plan -var-file=terraformtf.vars -out=tfplan -input=false'
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                echo "Applying Terraform changes..."
-                sh 'terraform apply -input=false tfplan'
+                sh 'terraform apply -auto-approve tfplan'
             }
         }
 
-        stage('Upload File to Private S3') {
+        stage('Get Private S3 Bucket Name') {
             steps {
                 script {
-                    def sshPrivate = sh(script: "terraform output -raw ssh_via_bastion_command", returnStdout: true).trim()
-                    echo "Running S3 upload script on private EC2..."
-                    sh """
-                    $sshPrivate << 'EOF'
-                    chmod +x /home/ec2-user/scripts/test_s3.sh
-                    /home/ec2-user/scripts/test_s3.sh
-                    EOF
-                    """
+                    // Capture S3 bucket name from Terraform output
+                    BUCKET_NAME = sh(
+                        script: "terraform output -raw s3_bucket_name",
+                        returnStdout: true
+                    ).trim()
+                    echo "Private S3 bucket name is: ${BUCKET_NAME}"
                 }
             }
         }
 
-        stage('Verify File in S3') {
+        stage('Upload Test File from Private EC2') {
             steps {
                 script {
-                    def sshPrivate = sh(script: "terraform output -raw ssh_via_bastion_command", returnStdout: true).trim()
-                    echo "Verifying file exists in S3..."
+                    // Get private EC2 private IP
+                    PRIVATE_IP = sh(
+                        script: "terraform output -raw private_ec2_private_ip",
+                        returnStdout: true
+                    ).trim()
+
+                    // Get public EC2 public IP
+                    BASTION_IP = sh(
+                        script: "terraform output -raw public_ec2_public_ip",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Private EC2 IP: ${PRIVATE_IP}"
+                    echo "Bastion IP: ${BASTION_IP}"
+
+                    // SSH into private EC2 via bastion and run the S3 upload script
                     sh """
-                    $sshPrivate << 'EOF'
-                    BUCKET_NAME=$(terraform output -raw s3_bucket_name)
-                    aws s3 ls s3://$BUCKET_NAME/test-files/test_file.txt
-                    EOF
+                    ssh -o StrictHostKeyChecking=no -i ${var.key_pair_name}.pem \
+                    -J ec2-user@${BASTION_IP} ec2-user@${PRIVATE_IP} \
+                    'bash /home/ec2-user/scripts/test_s3.sh'
                     """
                 }
             }
@@ -69,13 +74,7 @@ pipeline {
 
     post {
         always {
-            echo "Pipeline finished."
-        }
-        success {
-            echo "Terraform, file upload, and verification completed successfully."
-        }
-        failure {
-            echo "Pipeline failed. Check logs for details."
+            echo 'Pipeline finished.'
         }
     }
 }
