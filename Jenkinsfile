@@ -56,10 +56,11 @@ pipeline {
                     echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
 
                     sh """
-                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem \
-                    -J ec2-user@${PUBLIC_IP} ec2-user@${PRIVATE_IP} \
-                    'echo "This is a test file from private EC2 at \$(date)" > /home/ec2-user/test_file.txt && \
-                     aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'
+                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem -J ec2-user@${PUBLIC_IP} ec2-user@${PRIVATE_IP} "\
+                        echo 'This is a test file from private EC2 at \$(date)' > /home/ec2-user/test_file.txt && \
+                        aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt && \
+                        echo 'Upload completed successfully.'
+                    "
                     """
                 }
             }
