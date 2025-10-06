@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(name: 'TF_ACTION', choices: ['apply', 'destroy'], description: 'Terraform action to perform')
+    }
+
     environment {
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
@@ -33,20 +37,33 @@ pipeline {
         }
 
         stage('Terraform Plan') {
+            when {
+                expression { params.TF_ACTION == 'apply' }
+            }
             steps {
                 echo "Planning Terraform changes..."
                 sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Terraform Apply/Destroy') {
             steps {
-                echo "Applying Terraform changes..."
-                sh 'terraform apply -input=false tfplan'
+                script {
+                    if (params.TF_ACTION == 'apply') {
+                        echo "Applying Terraform changes..."
+                        sh 'terraform apply -input=false tfplan'
+                    } else if (params.TF_ACTION == 'destroy') {
+                        echo "Destroying Terraform resources..."
+                        sh 'terraform destroy -var-file=terraform.tfvars -auto-approve'
+                    }
+                }
             }
         }
 
         stage('Upload Test File from Private EC2') {
+            when {
+                expression { params.TF_ACTION == 'apply' }
+            }
             steps {
                 script {
                     def PRIVATE_IP = sh(script: "terraform output -raw private_ec2_private_ip", returnStdout: true).trim()
@@ -73,6 +90,9 @@ pipeline {
         }
 
         stage('Show Outputs') {
+            when {
+                expression { params.TF_ACTION == 'apply' }
+            }
             steps {
                 script {
                     echo "Terraform Outputs:"
@@ -95,10 +115,10 @@ pipeline {
             echo 'Pipeline finished'
         }
         success {
-            echo 'Terraform applied successfully'
+            echo "Terraform ${params.TF_ACTION} executed successfully"
         }
         failure {
-            echo 'Terraform apply failed'
+            echo "Terraform ${params.TF_ACTION} failed"
         }
     }
 }
