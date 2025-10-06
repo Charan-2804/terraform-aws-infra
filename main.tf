@@ -20,7 +20,7 @@ resource "null_resource" "upload_test_file" {
     type         = "ssh"
     host         = aws_instance.private_ec2.private_ip
     user         = "ec2-user"
-    private_key  = file("Mini-dft-project-key-pem")       # PEM file in Jenkins workspace
+    private_key  = file("Mini-dft-project-key.pem")       # PEM file in Jenkins workspace
     bastion_host = aws_instance.public_ec2.public_ip
   }
 
