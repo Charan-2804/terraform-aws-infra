@@ -15,6 +15,16 @@ pipeline {
             }
         }
 
+        stage('Prepare PEM') {
+            steps {
+                echo "Retrieving PEM file from Jenkins credentials..."
+                // Save PEM to workspace so Terraform can use it
+                withCredentials([file(credentialsId: 'terraform-poc-pem', variable: 'PEM_FILE')]) {
+                    sh 'cp $PEM_FILE ./terraform-poc.pem && chmod 600 ./terraform-poc.pem'
+                }
+            }
+        }
+
         stage('Terraform Init') {
             steps {
                 echo "Initializing Terraform..."
@@ -36,6 +46,13 @@ pipeline {
             }
         }
 
+        stage('Upload Test File from Private EC2') {
+            steps {
+                echo "Uploading test file from private EC2 via Terraform null_resource..."
+                sh 'terraform apply -target=null_resource.upload_test_file -auto-approve'
+            }
+        }
+
         stage('Show Outputs') {
             steps {
                 script {
@@ -44,30 +61,7 @@ pipeline {
                         echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
                         echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
                         echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
-                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
-                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
                     '''
-                }
-            }
-        }
-
-        stage('Upload Test File from Private EC2') {
-            steps {
-                script {
-                    // Get Terraform outputs
-                    def PRIVATE_IP = sh(script: "terraform output -raw private_ec2_private_ip", returnStdout: true).trim()
-                    def PUBLIC_IP  = sh(script: "terraform output -raw public_ec2_public_ip", returnStdout: true).trim()
-                    def S3_BUCKET  = sh(script: "terraform output -raw s3_bucket_name", returnStdout: true).trim()
-
-                    echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
-
-                    // SSH into private EC2 via public EC2 (bastion), create a file, upload to S3
-                    sh """
-                    ssh -o StrictHostKeyChecking=no -i /var/lib/jenkins/keys/terraform-poc.pem \
-                    -J ec2-user@${PUBLIC_IP} ec2-user@${PRIVATE_IP} \
-                    'echo "This is a test file from private EC2 at \$(date)" > /home/ec2-user/test_file.txt && \
-                     aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'
-                    """
                 }
             }
         }
