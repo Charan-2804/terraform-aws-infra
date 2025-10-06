@@ -2,16 +2,16 @@ pipeline {
     agent any
 
     environment {
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')     // Jenkins AWS credentials ID
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_DEFAULT_REGION    = 'us-east-1'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Terraform Repo') {
             steps {
-                echo "Checking out Git repository..."
-                git branch: 'main', url: 'https://github.com/Charan-2804/terraform-aws-infra.git'
+                echo "Checking out Terraform repo..."
+                git url: 'https://github.com/Charan-2804/terraform-aws-infra.git', branch: 'main'
             }
         }
 
@@ -25,7 +25,7 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 echo "Planning Terraform changes..."
-                sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
+                sh 'terraform plan -var-file=terraformtf.vars -out=tfplan -input=false'
             }
         }
 
@@ -36,17 +36,32 @@ pipeline {
             }
         }
 
-        stage('Show Outputs') {
+        stage('Upload File to Private S3') {
             steps {
                 script {
-                    echo "Terraform Outputs:"
-                    sh '''
-                        echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
-                        echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
-                        echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
-                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
-                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
-                    '''
+                    def sshPrivate = sh(script: "terraform output -raw ssh_via_bastion_command", returnStdout: true).trim()
+                    echo "Running S3 upload script on private EC2..."
+                    sh """
+                    $sshPrivate << 'EOF'
+                    chmod +x /home/ec2-user/scripts/test_s3.sh
+                    /home/ec2-user/scripts/test_s3.sh
+                    EOF
+                    """
+                }
+            }
+        }
+
+        stage('Verify File in S3') {
+            steps {
+                script {
+                    def sshPrivate = sh(script: "terraform output -raw ssh_via_bastion_command", returnStdout: true).trim()
+                    echo "Verifying file exists in S3..."
+                    sh """
+                    $sshPrivate << 'EOF'
+                    BUCKET_NAME=$(terraform output -raw s3_bucket_name)
+                    aws s3 ls s3://$BUCKET_NAME/test-files/test_file.txt
+                    EOF
+                    """
                 }
             }
         }
@@ -54,13 +69,13 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished'
+            echo "Pipeline finished."
         }
         success {
-            echo 'Terraform applied successfully'
+            echo "Terraform, file upload, and verification completed successfully."
         }
         failure {
-            echo 'Terraform apply failed'
+            echo "Pipeline failed. Check logs for details."
         }
     }
 }
