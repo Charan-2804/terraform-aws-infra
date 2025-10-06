@@ -24,10 +24,4 @@ resource "null_resource" "upload_test_file" {
     bastion_host = aws_instance.public_ec2.public_ip
   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "echo 'This is a test file from private EC2 at $(date)' > /home/ec2-user/test_file.txt",
-      "aws s3 cp /home/ec2-user/test_file.txt s3://${aws_s3_bucket.private_bucket.id}/test-files/test_file.txt"
-    ]
-  }
-}
+ 
