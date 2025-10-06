@@ -19,10 +19,8 @@ pipeline {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
                 withCredentials([file(credentialsId: 'terraform-poc-pem', variable: 'PEM_FILE')]) {
-                    sh '''
-                        cp $PEM_FILE ./terraform-poc.pem
-                        chmod 600 ./terraform-poc.pem
-                    '''
+                    sh 'cp $PEM_FILE ./terraform-poc.pem'
+                    sh 'chmod 600 ./terraform-poc.pem'
                 }
             }
         }
@@ -57,21 +55,18 @@ pipeline {
 
                     echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
 
-                    // Copy PEM to Bastion
+                    // Copy PEM to bastion host
                     sh """
-                        echo "Copying PEM to bastion host..."
-                        scp -o StrictHostKeyChecking=no -i terraform-poc.pem terraform-poc.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
-                        ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} 'chmod 600 /home/ec2-user/.ssh/terraform-poc.pem'
+                    scp -o StrictHostKeyChecking=no -i terraform-poc.pem terraform-poc.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
+                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
                     """
 
-                    // Run upload command via Bastion -> Private EC2
+                    // Nested SSH: bastion to private EC2
                     sh """
-                        echo "Executing S3 upload command on private EC2..."
-                        ssh -o StrictHostKeyChecking=no -i terraform-poc.pem -J ec2-user@${PUBLIC_IP} ec2-user@${PRIVATE_IP} '
-                            echo "This is a test file from private EC2 at \$(date)" > /home/ec2-user/test_file.txt &&
-                            aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt &&
-                            echo "Upload completed successfully."
-                        '
+                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} \\
+                        "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/terraform-poc.pem ec2-user@${PRIVATE_IP} \\
+                        'echo \"This is a test file from private EC2 at \$(date)\" > /home/ec2-user/test_file.txt && \\
+                         aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'"
                     """
                 }
             }
@@ -79,14 +74,16 @@ pipeline {
 
         stage('Show Outputs') {
             steps {
-                echo "Terraform Outputs:"
-                sh '''
-                    echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
-                    echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
-                    echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
-                    echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
-                    echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
-                '''
+                script {
+                    echo "Terraform Outputs:"
+                    sh '''
+                        echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
+                        echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
+                        echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
+                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
+                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
+                    '''
+                }
             }
         }
     }
@@ -94,13 +91,14 @@ pipeline {
     post {
         always {
             echo 'Cleaning up sensitive files...'
-            sh 'rm -f terraform-poc.pem || true'
+            sh 'rm -f terraform-poc.pem'
+            echo 'Pipeline finished'
         }
         success {
-            echo 'Terraform applied and S3 upload successful.'
+            echo 'Terraform applied successfully'
         }
         failure {
-            echo 'Pipeline failed. Check Jenkins logs for details.'
+            echo 'Terraform apply failed'
         }
     }
 }
