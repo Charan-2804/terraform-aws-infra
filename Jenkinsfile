@@ -19,8 +19,10 @@ pipeline {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
                 withCredentials([file(credentialsId: 'Mini-dft-project-key-pem', variable: 'PEM_FILE')]) {
-                    sh 'cp $PEM_FILE ./Mini-dft-project-key-pem'
-                    sh 'chmod 600 ./Mini-dft-project-key-pem'
+                    sh '''
+                        cp $PEM_FILE ./Mini-dft-project-key-pem
+                        chmod 600 ./Mini-dft-project-key-pem
+                    '''
                 }
             }
         }
@@ -55,10 +57,10 @@ pipeline {
 
                     echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
 
-                    // Copy PEM to bastion host
+                    // Copy PEM to bastion host and set permissions
                     sh """
-                    scp -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem Mini-dft-project-key-pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
-                    ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
+                    scp -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem Mini-dft-project-key-pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/Mini-dft-project-key-pem
+                    ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/Mini-dft-project-key-pem
                     """
 
                     // Nested SSH: bastion to private EC2
@@ -91,7 +93,7 @@ pipeline {
     post {
         always {
             echo 'Cleaning up sensitive files...'
-            sh 'rm -f terraform-poc.pem'
+            sh 'rm -f Mini-dft-project-key-pem'
             echo 'Pipeline finished'
         }
         success {
