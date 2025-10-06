@@ -1,8 +1,7 @@
- # IAM Role for EC2 to access S3
-resource "aws_iam_role" "ec2_s3_access_role" {
-  name = "${var.project_name}-ec2-s3-role"
+# IAM Role for Private EC2 to access S3
+resource "aws_iam_role" "private_ec2_s3_role" {
+  name = "${var.project_name}-private-ec2-s3-role"
 
-  # Policy to allow EC2 to assume this role
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -17,14 +16,14 @@ resource "aws_iam_role" "ec2_s3_access_role" {
   })
 
   tags = {
-    Name = "${var.project_name}-ec2-s3-role"
+    Name = "${var.project_name}-private-ec2-s3-role"
   }
 }
 
-# IAM Policy to allow S3 operations on private bucket
-resource "aws_iam_policy" "s3_access_policy" {
-  name        = "${var.project_name}-s3-access-policy"
-  description = "Policy for S3 bucket access"
+# IAM Policy for S3 access (private bucket only)
+resource "aws_iam_policy" "private_s3_policy" {
+  name        = "${var.project_name}-private-s3-policy"
+  description = "Allow private EC2 to access private S3 bucket"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -46,14 +45,14 @@ resource "aws_iam_policy" "s3_access_policy" {
   })
 }
 
-# Attach the S3 policy to the EC2 IAM role
-resource "aws_iam_role_policy_attachment" "ec2_s3_access" {
-  role       = aws_iam_role.ec2_s3_access_role.name
-  policy_arn = aws_iam_policy.s3_access_policy.arn
+# Attach policy to the private EC2 role
+resource "aws_iam_role_policy_attachment" "private_ec2_s3_attach" {
+  role       = aws_iam_role.private_ec2_s3_role.name
+  policy_arn = aws_iam_policy.private_s3_policy.arn
 }
 
-# Create instance profile for EC2 instances to use IAM role
-resource "aws_iam_instance_profile" "ec2_instance_profile" {
-  name = "${var.project_name}-ec2-instance-profile"
-  role = aws_iam_role.ec2_s3_access_role.name
+# Instance profile for private EC2
+resource "aws_iam_instance_profile" "private_ec2_instance_profile" {
+  name = "${var.project_name}-private-ec2-instance-profile"
+  role = aws_iam_role.private_ec2_s3_role.name
 }

@@ -23,7 +23,8 @@ resource "aws_instance" "public_ec2" {
   vpc_security_group_ids      = [aws_security_group.public_ec2_sg.id]
   associate_public_ip_address = true
 
-  iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
+  # Remove IAM instance profile or keep one without S3 permissions
+  # iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
 
   user_data = filebase64("${path.module}/userdata/public-ec2-userdata.sh")
 
@@ -42,9 +43,12 @@ resource "aws_instance" "private_ec2" {
   subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [aws_security_group.private_ec2_sg.id]
 
-  iam_instance_profile = aws_iam_instance_profile.ec2_instance_profile.name
+  iam_instance_profile = aws_iam_instance_profile.private_ec2_instance_profile.name
 
-  user_data = filebase64("${path.module}/userdata/private-ec2-userdata.sh")
+ # Updated to inject dynamically created S3 bucket name
+  user_data = base64encode(templatefile("${path.module}/userdata/private-ec2-userdata.sh", {
+    s3_bucket_name = aws_s3_bucket.private_bucket.bucket
+  }))
 
   tags = {
     Name = "${var.project_name}-private-ec2"
