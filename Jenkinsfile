@@ -2,43 +2,52 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'us-east-1'
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        AWS_DEFAULT_REGION    = 'us-east-1'
+        PRIVATE_KEY_PATH      = '/var/lib/jenkins/keys/terraform-poc.pem' // Path to your private key
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/Charan-2804/terraform-aws-infra.git', branch: 'main'
+                echo "Checking out Git repository..."
+                git branch: 'main', url: 'https://github.com/Charan-2804/terraform-aws-infra.git'
             }
         }
 
         stage('Terraform Init') {
             steps {
+                echo "Initializing Terraform..."
                 sh 'terraform init -input=false'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -var-file=terraformtf.vars -out=tfplan -input=false'
+                echo "Planning Terraform changes..."
+                sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                sh 'terraform apply -auto-approve tfplan'
+                echo "Applying Terraform changes..."
+                sh 'terraform apply -input=false tfplan'
             }
         }
 
-        stage('Get Private S3 Bucket Name') {
+        stage('Show Outputs') {
             steps {
                 script {
-                    // Capture S3 bucket name from Terraform output
-                    BUCKET_NAME = sh(
-                        script: "terraform output -raw s3_bucket_name",
-                        returnStdout: true
-                    ).trim()
-                    echo "Private S3 bucket name is: ${BUCKET_NAME}"
+                    echo "Terraform Outputs:"
+                    sh '''
+                        echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
+                        echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
+                        echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
+                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
+                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
+                    '''
                 }
             }
         }
@@ -46,26 +55,18 @@ pipeline {
         stage('Upload Test File from Private EC2') {
             steps {
                 script {
-                    // Get private EC2 private IP
-                    PRIVATE_IP = sh(
-                        script: "terraform output -raw private_ec2_private_ip",
-                        returnStdout: true
-                    ).trim()
+                    // Get dynamic values from Terraform outputs
+                    def privateIp = sh(script: "terraform output -raw private_ec2_private_ip", returnStdout: true).trim()
+                    def publicIp  = sh(script: "terraform output -raw public_ec2_public_ip", returnStdout: true).trim()
+                    def s3Bucket  = sh(script: "terraform output -raw s3_bucket_name", returnStdout: true).trim()
 
-                    // Get public EC2 public IP
-                    BASTION_IP = sh(
-                        script: "terraform output -raw public_ec2_public_ip",
-                        returnStdout: true
-                    ).trim()
+                    echo "Uploading test file from private EC2 to S3 bucket: ${s3Bucket}"
 
-                    echo "Private EC2 IP: ${PRIVATE_IP}"
-                    echo "Bastion IP: ${BASTION_IP}"
-
-                    // SSH into private EC2 via bastion and run the S3 upload script
+                    // SSH command to run on private EC2 via bastion (public EC2)
                     sh """
-                    ssh -o StrictHostKeyChecking=no -i ${var.key_pair_name}.pem \
-                    -J ec2-user@${BASTION_IP} ec2-user@${PRIVATE_IP} \
-                    'bash /home/ec2-user/scripts/test_s3.sh'
+                        ssh -o StrictHostKeyChecking=no -i ${PRIVATE_KEY_PATH} -J ec2-user@${publicIp} ec2-user@${privateIp} \\
+                        "echo 'This is a test file from private EC2 at \$(date)' > /home/ec2-user/test_file.txt && \\
+                         aws s3 cp /home/ec2-user/test_file.txt s3://${s3Bucket}/test-files/"
                     """
                 }
             }
@@ -74,7 +75,13 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished.'
+            echo 'Pipeline finished'
+        }
+        success {
+            echo 'Terraform applied successfully'
+        }
+        failure {
+            echo 'Terraform apply failed'
         }
     }
 }
