@@ -2,48 +2,72 @@ pipeline {
     agent any
 
     environment {
-        AWS_DEFAULT_REGION = 'us-east-1'
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        AWS_DEFAULT_REGION    = 'us-east-1'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main', url: 'https://github.com/Charan-2804/Waste_management.git'
+                echo "Checking out Git repository..."
+                git branch: 'main', url: 'https://github.com/Charan-2804/terraform-aws-infra.git'
+            }
+        }
+
+        stage('Prepare PEM') {
+            steps {
+                echo "Retrieving PEM file from Jenkins credentials..."
+                withCredentials([file(credentialsId: 'Mini-dft-project-key-pem', variable: 'PEM_FILE')]) {
+                    sh 'cp $PEM_FILE ./terraform-poc.pem'
+                    sh 'chmod 600 ./terraform-poc.pem'
+                }
             }
         }
 
         stage('Terraform Init') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-terraform-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                    sh 'terraform init -input=false'
-                }
+                echo "Initializing Terraform..."
+                sh 'terraform init -input=false'
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-terraform-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                    sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
-                }
+                echo "Planning Terraform changes..."
+                sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
 
         stage('Terraform Apply') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-terraform-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                    sh 'terraform apply -input=false tfplan'
+                echo "Applying Terraform changes..."
+                sh 'terraform apply -input=false tfplan'
+            }
+        }
+
+        stage('Upload Test File from Private EC2') {
+            steps {
+                script {
+                    def PRIVATE_IP = sh(script: "terraform output -raw private_ec2_private_ip", returnStdout: true).trim()
+                    def PUBLIC_IP  = sh(script: "terraform output -raw public_ec2_public_ip", returnStdout: true).trim()
+                    def S3_BUCKET  = sh(script: "terraform output -raw s3_bucket_name", returnStdout: true).trim()
+
+                    echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
+
+                    // Copy PEM to bastion host
+                    sh """
+                    scp -o StrictHostKeyChecking=no -i terraform-poc.pem terraform-poc.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
+                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
+                    """
+
+                    // Nested SSH: bastion to private EC2
+                    sh """
+                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} \\
+                        "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/terraform-poc.pem ec2-user@${PRIVATE_IP} \\
+                        'echo \"This is a test file from private EC2 at \$(date)\" > /home/ec2-user/test_file.txt && \\
+                         aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'"
+                    """
                 }
             }
         }
@@ -51,13 +75,13 @@ pipeline {
         stage('Show Outputs') {
             steps {
                 script {
-                    echo "=== Terraform Outputs ==="
+                    echo "Terraform Outputs:"
                     sh '''
-                      echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
-                      echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
-                      echo "Private S3 Bucket: $(terraform output -raw s3_bucket_name)"
-                      echo "SSH Command (Public EC2): $(terraform output -raw public_ec2_ssh_command)"
-                      echo "SSH Command via Bastion: $(terraform output -raw ssh_via_bastion_command)"
+                        echo "Public EC2 IP: $(terraform output -raw public_ec2_public_ip)"
+                        echo "Private EC2 IP: $(terraform output -raw private_ec2_private_ip)"
+                        echo "S3 Bucket Name: $(terraform output -raw s3_bucket_name)"
+                        echo "Public EC2 SSH Command: $(terraform output -raw public_ec2_ssh_command)"
+                        echo "SSH via Bastion Command: $(terraform output -raw ssh_via_bastion_command)"
                     '''
                 }
             }
@@ -66,13 +90,15 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished!'
+            echo 'Cleaning up sensitive files...'
+            sh 'rm -f terraform-poc.pem'
+            echo 'Pipeline finished'
         }
         success {
-            echo 'Terraform applied successfully!'
+            echo 'Terraform applied successfully'
         }
         failure {
-            echo 'Terraform apply failed!'
+            echo 'Terraform apply failed'
         }
     }
 }
