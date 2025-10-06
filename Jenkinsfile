@@ -19,8 +19,8 @@ pipeline {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
                 withCredentials([file(credentialsId: 'Mini-dft-project-key-pem', variable: 'PEM_FILE')]) {
-                    sh 'cp $PEM_FILE ./terraform-poc.pem'
-                    sh 'chmod 600 ./terraform-poc.pem'
+                    sh 'cp $PEM_FILE ./Mini-dft-project-key-pem'
+                    sh 'chmod 600 ./Mini-dft-project-key-pem'
                 }
             }
         }
@@ -57,14 +57,14 @@ pipeline {
 
                     // Copy PEM to bastion host
                     sh """
-                    scp -o StrictHostKeyChecking=no -i terraform-poc.pem terraform-poc.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
-                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
+                    scp -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem Mini-dft-project-key-pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
+                    ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
                     """
 
                     // Nested SSH: bastion to private EC2
                     sh """
-                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} \\
-                        "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/terraform-poc.pem ec2-user@${PRIVATE_IP} \\
+                    ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} \\
+                        "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/Mini-dft-project-key-pem ec2-user@${PRIVATE_IP} \\
                         'echo \"This is a test file from private EC2 at \$(date)\" > /home/ec2-user/test_file.txt && \\
                          aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'"
                     """
