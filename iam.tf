@@ -1,51 +1,27 @@
 # IAM Role for Private EC2 to access S3
-resource "aws_iam_role" "private_ec2_s3_role" {
-  name = "${var.project_name}-private-ec2-s3-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.project_name}-private-ec2-s3-role"
-  }
-}
-
-# IAM Policy for S3 access (private bucket only)
 resource "aws_iam_policy" "private_s3_policy" {
   name        = "ec2-s3-poc-private-s3-policy"
   description = "Allow EC2 to read/write to the private S3 bucket"
 
   policy = jsonencode({
-  {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:ListBucket"
-      ],
-      "Resource": [
-        "arn:aws:s3:::mini-dtf-project-bucket",
-        "arn:aws:s3:::mini-dtf-project-bucket/*"
-      ]
-    }
-  ]
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::mini-dtf-project-bucket",
+          "arn:aws:s3:::mini-dtf-project-bucket/*"
+        ]
+      }
+    ]
+  })
 }
-
-   
 
 # Attach policy to the private EC2 role
 resource "aws_iam_role_policy_attachment" "private_ec2_s3_attach" {
