@@ -1,7 +1,7 @@
 # Create private S3 bucket with auto-generated unique name
 resource "aws_s3_bucket" "private_bucket" {
-  bucket_prefix = "${var.project_name}-private-bucket-"  # Terraform auto-generates unique suffix
-  force_destroy = true   # Optional: allows terraform destroy to clean it up easily
+  bucket_prefix = "${var.project_name}-private-bucket-" # Terraform auto-generates unique suffix
+  force_destroy = true                                  # Optional: allows terraform destroy to clean it up easily
 
   tags = {
     Name = "${var.project_name}-private-bucket"

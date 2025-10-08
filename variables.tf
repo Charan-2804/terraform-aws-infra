@@ -1,8 +1,8 @@
- # AWS region to deploy resources
+# AWS region to deploy resources
 variable "aws_region" {
-  description = "AWS region"
+  description = "AWS region "
   type        = string
-  default     = "us-east-1"
+  default     = "us-west-1"
 }
 
 # Project name for naming resources
@@ -11,7 +11,6 @@ variable "project_name" {
   type        = string
   default     = "ec2-s3-poc"
 }
-
 # VPC CIDR block
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
@@ -37,7 +36,7 @@ variable "private_subnet_cidr" {
 variable "availability_zone" {
   description = "Availability zone"
   type        = string
-  default     = "us-east-1a"
+  default     = "us-west-1a"
 }
 
 # EC2 instance type
@@ -49,13 +48,18 @@ variable "ec2_instance_type" {
 
 # Existing EC2 key pair name
 variable "key_pair_name" {
-  description = "terraform-poc"
+  description = "Existing Ec2 key Pair name in aws"
   type        = string
 }
 
 # Private S3 bucket name
 variable "s3_bucket_name" {
   description = "s3-poc-private-bucket"
+  type        = string
+}
+# Private key content for SSH (provided by Jenkins)
+variable "private_key" {
+  description = "PEM key content used for SSH connection to EC2 instances"
   type        = string
 }
 

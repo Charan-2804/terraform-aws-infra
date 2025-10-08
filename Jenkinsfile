@@ -22,7 +22,7 @@ pipeline {
         stage('Prepare PEM') {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
-                withCredentials([file(credentialsId: 'terraform-poc-pem', variable: 'PEM_FILE')]) {
+                withCredentials([file(credentialsId: 'Mini-dft-project-key', variable: 'PEM_FILE')]) {
                     sh 'cp $PEM_FILE ./terraform-poc.pem'
                     sh 'chmod 600 ./terraform-poc.pem'
                 }

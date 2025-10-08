@@ -1,4 +1,4 @@
- # Security group for public EC2 (Bastion host)
+# Security group for public EC2 (Bastion host)
 resource "aws_security_group" "public_ec2_sg" {
   name        = "${var.project_name}-public-ec2-sg"
   description = "Security group for public EC2 instance"
@@ -17,7 +17,7 @@ resource "aws_security_group" "public_ec2_sg" {
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1"          # -1 means all protocols
+    protocol    = "-1" # -1 means all protocols
     cidr_blocks = ["0.0.0.0/0"]
   }
 

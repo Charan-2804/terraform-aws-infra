@@ -1,4 +1,4 @@
-aws_region          = "us-east-1"
-project_name        = "ec2-s3-poc"
-key_pair_name       = "terraform-poc"           # Replace with your actual key pair
-s3_bucket_name      = "s3-poc-private-bucket-charan" # Must be globally unique
+aws_region     = "us-east-1"
+project_name   = "ec2-s3-poc"
+key_pair_name  = "Mini-dft-project-key"    # Replace with your actual key pair
+s3_bucket_name = "mini-dtf-project-bucket" # Must be globally unique

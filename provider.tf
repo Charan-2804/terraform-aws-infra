@@ -1,4 +1,4 @@
- # Specify Terraform version and required AWS provider
+# Specify Terraform version and required AWS provider
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -11,14 +11,5 @@ terraform {
 
 # Configure AWS provider with region and default tags
 provider "aws" {
-  region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = "ec2-s3-poc"  # Project tag for resources
-      Environment = "poc"          # Environment tag
-      Terraform   = "true"         # Indicates resource is managed by Terraform
-    }
-  }
+  region = "us-east-1"
 }
-
