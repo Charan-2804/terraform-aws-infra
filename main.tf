@@ -3,7 +3,7 @@ terraform {
 
     bucket = "mini-dtf-project-bucket"
     key    = "Mini-dft-project-key/terraform.tfstate"
-    region = "us-east-1"
+    region = "us-west-1"
   }
 }
 
