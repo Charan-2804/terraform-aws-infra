@@ -11,5 +11,5 @@ terraform {
 
 # Configure AWS provider with region and default tags
 provider "aws" {
-  region = "us-east-1"
+  region = "us-west-1"
 }
