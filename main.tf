@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-<<<<<<< HEAD
+
     bucket = "mini-dtf-project-bucket"
-    key    = "ec2-s3-poc/terraform.tfstate"
-    region = "us-west-1"
+    key    = "Mini-dft-project-key/terraform.tfstate"
+    region = "us-east-1"
   }
 }
 
@@ -30,13 +30,7 @@ resource "null_resource" "upload_test_file" {
       "echo 'This is a test file from private EC2 at $(date)' > /home/ec2-user/test_file.txt",
       "aws s3 cp /home/ec2-user/test_file.txt s3://${aws_s3_bucket.private_bucket.id}/test-files/test_file.txt"
     ]
-=======
-    bucket         = "mini-dtf-project-bucket"   # Replace with your S3 bucket name
-    key            = "Mini-dft-project-key/terraform.tfstate"  # Path inside the bucket
-    region         = "us-east-1"                      # Your AWS region
-      
->>>>>>> origin/sindhu
-  }
+  }  
 }
 
 
@@ -55,5 +49,6 @@ resource "null_resource" "upload_test_file" {
     private_key  = file("Mini-dft-project-key.pem")       # PEM file in Jenkins workspace
     bastion_host = aws_instance.public_ec2.public_ip
   }
+}
 
  
