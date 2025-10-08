@@ -1,13 +1,9 @@
 pipeline {
     agent any
-
-<<<<<<< HEAD
     parameters {
         choice(name: 'TF_ACTION', choices: ['apply', 'destroy'], description: 'Terraform action to perform')
     }
 
-=======
->>>>>>> origin/sindhu
     environment {
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
@@ -25,17 +21,14 @@ pipeline {
         stage('Prepare PEM') {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
-<<<<<<< HEAD
                 withCredentials([file(credentialsId: 'Mini-dft-project-key', variable: 'PEM_FILE')]) {
                     sh 'cp $PEM_FILE ./terraform-poc.pem'
                     sh 'chmod 600 ./terraform-poc.pem'
-=======
                 withCredentials([file(credentialsId: 'Mini-dft-project-key-pem', variable: 'PEM_FILE')]) {
                     sh '''
                         cp $PEM_FILE ./Mini-dft-project-key-pem
                         chmod 600 ./Mini-dft-project-key-pem
                     '''
->>>>>>> origin/sindhu
                 }
             }
         }
@@ -48,19 +41,15 @@ pipeline {
         }
 
         stage('Terraform Plan') {
-<<<<<<< HEAD
+
             when {
                 expression { params.TF_ACTION == 'apply' }
             }
-=======
->>>>>>> origin/sindhu
             steps {
                 echo "Planning Terraform changes..."
                 sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
-
-<<<<<<< HEAD
         stage('Terraform Apply/Destroy') {
             steps {
                 script {
@@ -72,22 +61,21 @@ pipeline {
                         sh 'terraform destroy -var-file=terraform.tfvars -auto-approve'
                     }
                 }
-=======
+
         stage('Terraform Apply') {
             steps {
                 echo "Applying Terraform changes..."
                 sh 'terraform apply -input=false tfplan'
->>>>>>> origin/sindhu
             }
         }
 
         stage('Upload Test File from Private EC2') {
-<<<<<<< HEAD
+
             when {
                 expression { params.TF_ACTION == 'apply' }
             }
-=======
->>>>>>> origin/sindhu
+
+
             steps {
                 script {
                     def PRIVATE_IP = sh(script: "terraform output -raw private_ec2_private_ip", returnStdout: true).trim()
@@ -96,28 +84,27 @@ pipeline {
 
                     echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
 
-<<<<<<< HEAD
+
                     // Copy PEM to bastion host
                     sh """
                     scp -o StrictHostKeyChecking=no -i terraform-poc.pem terraform-poc.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
                     ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
-=======
+
                     // Copy PEM to bastion host and set permissions
                     sh """
                     scp -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem Mini-dft-project-key-pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/Mini-dft-project-key-pem
                     ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/Mini-dft-project-key-pem
->>>>>>> origin/sindhu
+
                     """
 
                     // Nested SSH: bastion to private EC2
                     sh """
-<<<<<<< HEAD
                     ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} \\
                         "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/terraform-poc.pem ec2-user@${PRIVATE_IP} \\
-=======
+
                     ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} \\
                         "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/Mini-dft-project-key-pem ec2-user@${PRIVATE_IP} \\
->>>>>>> origin/sindhu
+
                         'echo \"This is a test file from private EC2 at \$(date)\" > /home/ec2-user/test_file.txt && \\
                          aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'"
                     """
