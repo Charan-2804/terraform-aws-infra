@@ -21,13 +21,11 @@ pipeline {
         stage('Prepare PEM') {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
+                // Jenkins secret file credential
                 withCredentials([file(credentialsId: 'Mini-dft-project-key', variable: 'PEM_FILE')]) {
-                    sh 'cp $PEM_FILE ./terraform-poc.pem'
-                    sh 'chmod 600 ./terraform-poc.pem'
-                withCredentials([file(credentialsId: 'Mini-dft-project-key-pem', variable: 'PEM_FILE')]) {
                     sh '''
-                        cp $PEM_FILE ./Mini-dft-project-key-pem
-                        chmod 600 ./Mini-dft-project-key-pem
+                        cp $PEM_FILE ./Mini-dft-project-key.pem
+                        chmod 600 ./Mini-dft-project-key.pem
                     '''
                 }
             }
@@ -41,41 +39,33 @@ pipeline {
         }
 
         stage('Terraform Plan') {
-
             when {
                 expression { params.TF_ACTION == 'apply' }
             }
             steps {
                 echo "Planning Terraform changes..."
-                sh 'terraform plan -var-file=terraform.tfvars -out=tfplan -input=false'
+                sh 'terraform plan -var="private_key=Mini-dft-project-key.pem" -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
+
         stage('Terraform Apply/Destroy') {
             steps {
                 script {
                     if (params.TF_ACTION == 'apply') {
                         echo "Applying Terraform changes..."
                         sh 'terraform apply -input=false tfplan'
-                    } else if (params.TF_ACTION == 'destroy') {
+                    } else {
                         echo "Destroying Terraform resources..."
-                        sh 'terraform destroy -var-file=terraform.tfvars -auto-approve'
+                        sh 'terraform destroy -var="private_key=Mini-dft-project-key.pem" -var-file=terraform.tfvars -auto-approve'
                     }
                 }
-
-        stage('Terraform Apply') {
-            steps {
-                echo "Applying Terraform changes..."
-                sh 'terraform apply -input=false tfplan'
             }
         }
 
         stage('Upload Test File from Private EC2') {
-
             when {
                 expression { params.TF_ACTION == 'apply' }
             }
-
-
             steps {
                 script {
                     def PRIVATE_IP = sh(script: "terraform output -raw private_ec2_private_ip", returnStdout: true).trim()
@@ -84,41 +74,23 @@ pipeline {
 
                     echo "Uploading test file from private EC2 to S3 bucket: ${S3_BUCKET}"
 
-
-                    // Copy PEM to bastion host
                     sh """
-                    scp -o StrictHostKeyChecking=no -i terraform-poc.pem terraform-poc.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/terraform-poc.pem
-                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/terraform-poc.pem
+                        scp -o StrictHostKeyChecking=no -i Mini-dft-project-key.pem Mini-dft-project-key.pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/Mini-dft-project-key.pem
+                        ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key.pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/Mini-dft-project-key.pem
 
-                    // Copy PEM to bastion host and set permissions
-                    sh """
-                    scp -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem Mini-dft-project-key-pem ec2-user@${PUBLIC_IP}:/home/ec2-user/.ssh/Mini-dft-project-key-pem
-                    ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} chmod 600 /home/ec2-user/.ssh/Mini-dft-project-key-pem
-
-                    """
-
-                    // Nested SSH: bastion to private EC2
-                    sh """
-                    ssh -o StrictHostKeyChecking=no -i terraform-poc.pem ec2-user@${PUBLIC_IP} \\
-                        "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/terraform-poc.pem ec2-user@${PRIVATE_IP} \\
-
-                    ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key-pem ec2-user@${PUBLIC_IP} \\
-                        "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/Mini-dft-project-key-pem ec2-user@${PRIVATE_IP} \\
-
-                        'echo \"This is a test file from private EC2 at \$(date)\" > /home/ec2-user/test_file.txt && \\
-                         aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'"
+                        ssh -o StrictHostKeyChecking=no -i Mini-dft-project-key.pem ec2-user@${PUBLIC_IP} \\
+                            "ssh -o StrictHostKeyChecking=no -i /home/ec2-user/.ssh/Mini-dft-project-key.pem ec2-user@${PRIVATE_IP} \\
+                            'echo \"This is a test file from private EC2 at \$(date)\" > /home/ec2-user/test_file.txt && \\
+                             aws s3 cp /home/ec2-user/test_file.txt s3://${S3_BUCKET}/test-files/test_file.txt'"
                     """
                 }
             }
         }
 
         stage('Show Outputs') {
-<<<<<<< HEAD
             when {
                 expression { params.TF_ACTION == 'apply' }
             }
-=======
->>>>>>> origin/sindhu
             steps {
                 script {
                     echo "Terraform Outputs:"
@@ -137,8 +109,7 @@ pipeline {
     post {
         always {
             echo 'Cleaning up sensitive files...'
-<<<<<<< HEAD
-            sh 'rm -f terraform-poc.pem'
+            sh 'rm -f Mini-dft-project-key.pem'
             echo 'Pipeline finished'
         }
         success {
@@ -146,16 +117,6 @@ pipeline {
         }
         failure {
             echo "Terraform ${params.TF_ACTION} failed"
-=======
-            sh 'rm -f Mini-dft-project-key-pem'
-            echo 'Pipeline finished'
-        }
-        success {
-            echo 'Terraform applied successfully'
-        }
-        failure {
-            echo 'Terraform apply failed'
->>>>>>> origin/sindhu
         }
     }
 }
