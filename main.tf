@@ -1,8 +1,7 @@
 terraform {
   backend "s3" {
-
     bucket = "mini-dtf-project-bucket"
-    key    = "Mini-dft-project-key/terraform.tfstate"
+    key    = "s3-poc-s3/terraform.tfstate"
     region = "us-west-1"
   }
 }
