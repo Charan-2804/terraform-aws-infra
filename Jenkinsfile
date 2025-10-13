@@ -22,7 +22,7 @@ pipeline {
             steps {
                 echo "Retrieving PEM file from Jenkins credentials..."
                 // Jenkins secret file credential
-                withCredentials([file(credentialsId: 'Mini-dft-project-key', variable: 'PEM_FILE')]) {
+                withCredentials([file(credentialsId: 'Mini-dft-project-key-pem', variable: 'PEM_FILE')]) {
                     sh '''
                         cp $PEM_FILE ./Mini-dft-project-key.pem
                         chmod 600 ./Mini-dft-project-key.pem
