@@ -44,7 +44,7 @@ pipeline {
             }
             steps {
                 echo "Planning Terraform changes..."
-                sh 'terraform plan -var="private_key=Mini-dft-project-key.pem" -var-file=terraform.tfvars -out=tfplan -input=false'
+                sh 'terraform plan -var="private_key=${WORKSPACE}/Mini-dft-project-key.pem" -var-file=terraform.tfvars -out=tfplan -input=false'
             }
         }
 
