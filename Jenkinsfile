@@ -39,28 +39,29 @@ pipeline {
         }
 
         stage('Terraform Plan') {
-            when {
-                expression { params.TF_ACTION == 'apply' }
-            }
-            steps {
-                echo "Planning Terraform changes..."
-                sh 'terraform plan -var="private_key=${WORKSPACE}/Mini-dft-project-key.pem" -var-file=terraform.tfvars -out=tfplan -input=false'
-            }
-        }
+    when {
+        expression { params.TF_ACTION == 'apply' }
+    }
+    steps {
+        echo "Planning Terraform changes..."
+        sh 'terraform plan -var="private_key=${WORKSPACE}/Mini-dft-project-key.pem" -var-file=terraform.tfvars -out=tfplan -input=false'
+    }
+}
 
-        stage('Terraform Apply/Destroy') {
-            steps {
-                script {
-                    if (params.TF_ACTION == 'apply') {
-                        echo "Applying Terraform changes..."
-                        sh 'terraform apply -input=false tfplan'
-                    } else {
-                        echo "Destroying Terraform resources..."
-                        sh 'terraform destroy -var="private_key=Mini-dft-project-key.pem" -var-file=terraform.tfvars -auto-approve'
-                    }
-                }
+    stage('Terraform Apply/Destroy') {
+    steps {
+        script {
+            if (params.TF_ACTION == 'apply') {
+                echo "Applying Terraform changes..."
+                sh 'terraform apply -input=false tfplan'
+            } else {
+                echo "Destroying Terraform resources..."
+                sh 'terraform destroy -var="private_key=${WORKSPACE}/Mini-dft-project-key.pem" -var-file=terraform.tfvars -auto-approve'
             }
         }
+    }
+}
+
 
         stage('Upload Test File from Private EC2') {
             when {
